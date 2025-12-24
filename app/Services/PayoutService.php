@@ -116,10 +116,12 @@ class PayoutService
      */
     public function finalPayout(Payout $payout): bool
     {
-        $success = $payout->markFinalPayout();
+        // Skip status 5 and go straight to status 6 (Completed)
+        $success = $payout->update(['status' => 6]);
         
         if ($success) {
-            Log::info('Final payout marked', ['payout_id' => $payout->payout_id]);
+            $this->emailService->sendCompletedEmail($payout);
+            Log::info('Final payout marked and completed', ['payout_id' => $payout->payout_id]);
         }
         
         return $success;

@@ -158,8 +158,8 @@
                                                 @endif
                                             </td>
                                             <td>
-                                                <span class="badge bg-{{ $payout->status_color }}">
-                                                    {{ $payout->status_label }}
+                                                <span class="badge bg-{{ $payout->status == 2 ? 'warning' : $payout->status_color }}">
+                                                    {{ $payout->status == 2 ? 'Pending' : $payout->status_label }}
                                                 </span>
                                                 @if($payout->status == 1 && $payout->rejection_reason)
                                                     <div class="small text-danger mt-1">{{ $payout->rejection_reason }}</div>

@@ -9,7 +9,7 @@ use Illuminate\Support\Facades\Auth;
 class LoginController extends Controller
 {
     /**
-     * Show login form.
+     * Show login form
      */
     public function showLoginForm()
     {
@@ -17,35 +17,46 @@ class LoginController extends Controller
     }
 
     /**
-     * Handle login.
+     * Handle login
      */
     public function login(Request $request)
     {
+        // 1️⃣ Validate credentials
         $credentials = $request->validate([
-            'email' => 'required|email',
+            'email'    => 'required|email',
             'password' => 'required',
         ]);
 
-        $remember = $request->filled('remember');
+        $remember = $request->boolean('remember');
 
+        // 2️⃣ Attempt login
         if (Auth::attempt($credentials, $remember)) {
             $request->session()->regenerate();
 
-            // Redirect based on role
-            if (Auth::user()->isAdmin()) {
-                return redirect()->intended(route('admin.dashboard'));
+            $user = Auth::user();
+
+            // 3️⃣ Redirect STRICTLY by role
+            if ($user->isAdmin()) {
+                return redirect()->route('admin.dashboard');
             }
 
-            return redirect()->intended(route('propfirm.dashboard'));
+            if ($user->isPropfirm()) {
+                return redirect()->route('propfirm.dashboard');
+            }
+
+            // 4️⃣ Safety fallback (invalid role)
+            Auth::logout();
+            abort(403, 'Unauthorized role');
         }
 
+        // 5️⃣ Invalid credentials
         return back()->withErrors([
             'email' => 'The provided credentials do not match our records.',
         ])->onlyInput('email');
     }
 
     /**
-     * Logout user.
+     * Logout user
      */
     public function logout(Request $request)
     {
@@ -54,6 +65,6 @@ class LoginController extends Controller
         $request->session()->invalidate();
         $request->session()->regenerateToken();
 
-        return redirect('/');
+        return redirect()->route('login');
     }
 }

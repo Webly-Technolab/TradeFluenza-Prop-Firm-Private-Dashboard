@@ -10,25 +10,72 @@ use Illuminate\Http\Request;
 class TradefluenzaPayoutController extends Controller
 {
     public function __construct(
-        private PayoutService $payoutService
+        private PayoutService $payoutService,
+        private \App\Models\User $userModel
     ) {}
 
     /**
      * Show confirmed/released/proof uploaded payouts.
      */
-    public function index()
+    public function index(Request $request)
     {
-        $payouts = Payout::with(['propfirm', 'paymentProofs'])
-            ->whereIn('status', [2, 3, 4, 5]) // Confirmed, Released, Proof Uploaded, Final Payout
+        $query = Payout::with(['propfirm', 'paymentProofs']);
+        $historyQuery = Payout::with(['propfirm', 'paymentProofs']);
+        $statsQuery = Payout::query();
+
+        // Apply Filters
+        if ($request->filled('propfirm_id')) {
+            $query->where('propfirm_id', $request->propfirm_id);
+            $historyQuery->where('propfirm_id', $request->propfirm_id);
+            $statsQuery->where('propfirm_id', $request->propfirm_id);
+        }
+
+        if ($request->filled('date_from')) {
+            $query->whereDate('created_at', '>=', $request->date_from);
+            $historyQuery->whereDate('created_at', '>=', $request->date_from);
+            $statsQuery->whereDate('created_at', '>=', $request->date_from);
+        }
+
+        if ($request->filled('date_to')) {
+            $query->whereDate('created_at', '<=', $request->date_to);
+            $historyQuery->whereDate('created_at', '<=', $request->date_to);
+            $statsQuery->whereDate('created_at', '<=', $request->date_to);
+        }
+
+        $payouts = $query->clone()
+            ->whereIn('status', [2]) // Confirmed
             ->latest()
             ->paginate(20, ['*'], 'active_page');
 
-        $history_payouts = Payout::with(['propfirm', 'paymentProofs'])
-            ->whereIn('status', [1, 6]) // Rejected, Completed
+        $history_payouts = $historyQuery->clone()
+            ->whereIn('status', [1, 3, 4, 5, 6]) // All others
             ->latest()
             ->paginate(20, ['*'], 'history_page');
 
-        return view('admin.tradefluenza.payouts.index', compact('payouts', 'history_payouts'));
+        // Statistics
+        $stats = [
+            'request' => [
+                'count' => (clone $statsQuery)->where('status', 2)->count(),
+                'amount' => (clone $statsQuery)->where('status', 2)->sum('amount'),
+            ],
+            'release' => [
+                'count' => (clone $statsQuery)->whereIn('status', [3, 4, 5])->count(),
+                'amount' => (clone $statsQuery)->whereIn('status', [3, 4, 5])->sum('amount'),
+            ],
+            'complete' => [
+                'count' => (clone $statsQuery)->where('status', 6)->count(),
+                'amount' => (clone $statsQuery)->where('status', 6)->sum('amount'),
+            ],
+            'total' => [
+                'count' => (clone $statsQuery)->count(),
+                'amount' => (clone $statsQuery)->sum('amount'),
+            ],
+        ];
+
+        // Get all propfirms for filter
+        $propfirms = $this->userModel->propfirm()->orderBy('propfirm_name')->get();
+
+        return view('admin.tradefluenza.payouts.index', compact('payouts', 'history_payouts', 'stats', 'propfirms'));
     }
 
     /**
