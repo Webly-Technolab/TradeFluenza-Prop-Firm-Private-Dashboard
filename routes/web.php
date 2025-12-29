@@ -43,6 +43,9 @@ Route::middleware(['auth', 'propfirm'])
         Route::get('/dashboard', [PropfirmPayoutController::class, 'index'])
             ->name('dashboard');
 
+        Route::get('/payouts', [PropfirmPayoutController::class, 'index'])
+            ->name('payouts.index');
+
         Route::post('/payouts/{payout}/confirm', [PropfirmPayoutController::class, 'confirm'])
             ->name('payouts.confirm');
 
